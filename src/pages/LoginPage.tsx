@@ -11,7 +11,7 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
 
     // Dummy authentication (Replace with real authentication API)
-    if (username === "admin" && password === "password@321$$") {
+    if (username === "admin" && password === "admin") {
       localStorage.setItem("isAuthenticated", "true");
       navigate("/");
     } else {

@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import MenuCard from "../components/MenuCard";
+import Modal from "../components/Modal";
+import PWAInstallButton from "../components/PWA.tsx";
 
 // Define dish interface
 interface Dish {
@@ -15,12 +17,15 @@ const MenuPage: React.FC = () => {
   const [similarDishes, setSimilarDishes] = useState<Dish[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
-  console.log(error)
   const [searchMode, setSearchMode] = useState<"menu" | "imagination">("menu");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedDish, setSelectedDish] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(false);
 
   // Fetch menu data
+  console.log(error)
   useEffect(() => {
-    fetch("/data.json")
+    fetch("/updated_data.json")
       .then((response) => {
         if (!response.ok) throw new Error("Failed to load menu data");
         return response.json();
@@ -33,19 +38,23 @@ const MenuPage: React.FC = () => {
   const filteredDishes = menuItems.filter((item) =>
     item.dish.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  console.log(filteredDishes[0])
+
   // Fetch similar dishes when clicking "More Like This"
   const fetchSimilarDishes = async (dishName: string) => {
     try {
-      console.log('Sending request with dish name:', dishName); // Debug log
+      setSelectedDish(dishName);
+      setIsLoading(true);
+      setIsModalOpen(true); // Open modal immediately to show loading indicator
 
-      const response = await fetch("http://localhost:8000/more-like-this", {
+      console.log('Sending request with dish name:', dishName);
+
+      const response = await fetch(" https://b458-2405-201-1021-a86c-2192-93ff-e44f-19d6.ngrok-free.app/more-like-this", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          dish_name: dishName  // Match the exact property name from Postman
+          dish_name: dishName
         })
       });
 
@@ -56,13 +65,37 @@ const MenuPage: React.FC = () => {
       }
 
       const data = await response.json();
-      console.log('Received data:', data); // Debug log
+      console.log('Received data:', data);
 
-      // Make sure we're accessing the correct property from the response
-      setSimilarDishes(data.reranked_objects || []); // Match the exact property name from response
+      // Process the received data
+      const processedDishes: Dish[] = [];
+
+      // Extract the dish objects from the response
+      if (data) {
+        // Convert the objects from the response into our Dish interface format
+        Object.entries(data).forEach(([key, value]) => {
+          if (key !== dishName && typeof value === 'object' && value !== null) {
+            const dishObj = value as any;
+            if (dishObj.cuisine && dishObj.category && dishObj.description) {
+              processedDishes.push({
+                dish: key,
+                cuisine: dishObj.cuisine,
+                category: dishObj.category,
+                description: dishObj.description,
+                allergy: dishObj.allergy
+              });
+            }
+          }
+        });
+      }
+
+      console.log('Processed dishes:', processedDishes);
+      setSimilarDishes(processedDishes);
     } catch (err) {
       console.error('Fetch error:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch similar dishes');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -71,7 +104,10 @@ const MenuPage: React.FC = () => {
     if (!searchQuery) return;
 
     try {
-      const response = await fetch("http://localhost:8000/personalized-recommendations", {
+      setIsLoading(true);
+      setIsModalOpen(true); // Open modal immediately to show loading indicator
+
+      const response = await fetch(" https://b458-2405-201-1021-a86c-2192-93ff-e44f-19d6.ngrok-free.apppersonalized-recommendations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ preference_query: searchQuery }),
@@ -84,20 +120,37 @@ const MenuPage: React.FC = () => {
       }
 
       const data = await response.json();
-      console.log('Received data:', data); // Debug log
+      console.log('Received data:', data);
 
-      // Make sure we're accessing the correct property from the response
-      // Match the exact property name from response
+      // Process the recommendations data based on actual API response format
+      const processedRecommendations: Dish[] = [];
+
+      // Adjust this part based on your actual API response format
+      if (data && data.recommendations) {
+        data.recommendations.forEach((item: any) => {
+          processedRecommendations.push({
+            dish: item.dish || "",
+            cuisine: item.cuisine || "",
+            category: item.category || "",
+            description: item.description || "",
+            allergy: item.allergy || undefined
+          });
+        });
+      }
+
+      setSimilarDishes(processedRecommendations);
     } catch (err) {
       console.error('Fetch error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch similar dishes');
+      setError(err instanceof Error ? err.message : 'Failed to fetch recommendations');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="max-w-7xl mx-auto p-4">
       <h1 className="text-3xl font-bold text-gray-800 mb-6">📖 Restaurant Menu</h1>
-
+      <PWAInstallButton />
       {/* Search Mode Toggle */}
       <div className="mb-6 flex items-center space-x-4">
         <button
@@ -135,43 +188,59 @@ const MenuPage: React.FC = () => {
       {searchMode === "menu" && (
         <div className="mb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {menuItems.map((item, index) => (
-              <div
-                key={`menu-${item.dish}-${index}`}
-                style={{
-                  display: item.dish.toLowerCase().includes(searchQuery.toLowerCase()) ? "block" : "none",
-                  transition: "display 300ms ease",
-                }}
-                className="transition-all duration-300"
-              >
-                <MenuCard
-                  key={`menu-card-${item.dish}-${index}`}
-                  dish={item.dish}
-                  details={item}
-                  onMoreLikeThis={fetchSimilarDishes}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Display Recommendations (Imagination Mode) */}
-      {searchMode === "imagination" && similarDishes.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">🍽️ More Like This</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {similarDishes.map((dish, index) => (
+            {filteredDishes.map((item, index) => (
               <MenuCard
-                key={`similar-${dish.dish}-${index}`}
-                dish={dish.dish}
-                details={dish}
+                key={`menu-card-${item.dish}-${index}`}
+                dish={item.dish}
+                details={{
+                  cuisine: item.cuisine,
+                  category: item.category,
+                  description: item.description,
+                  allergy: item.allergy
+                }}
                 onMoreLikeThis={fetchSimilarDishes}
               />
             ))}
           </div>
         </div>
       )}
+
+      {/* Modal for "More Like This" */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+        <div className="w-full max-h-[80vh] overflow-y-auto">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            {searchMode === "menu" ? `More Dishes Like "${selectedDish}"` : "Recommended Dishes"}
+          </h2>
+
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-10">
+              <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="mt-4 text-lg text-gray-600">Loading dishes...</p>
+            </div>
+          ) : similarDishes && similarDishes.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {similarDishes.map((dish, index) => (
+                <MenuCard
+                  key={`similar-${dish.dish}-${index}`}
+                  dish={dish.dish}
+                  details={{
+                    cuisine: dish.cuisine,
+                    category: dish.category,
+                    description: dish.description,
+                    allergy: dish.allergy
+                  }}
+                  onMoreLikeThis={(dishName) => {
+                    setSimilarDishes([]);
+                    fetchSimilarDishes(dishName);
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <p>No similar dishes found.</p>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };
