@@ -48,7 +48,8 @@ const MenuPage: React.FC = () => {
 
       console.log('Sending request with dish name:', dishName);
 
-      const response = await fetch(" https://b458-2405-201-1021-a86c-2192-93ff-e44f-19d6.ngrok-free.app/more-like-this", {
+      const response = await fetch(" https://0bfd-2405-201-1021-a04d-1823-e4be-2105-1cef.ngrok-free.app/more-like-this",
+          {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -107,7 +108,7 @@ const MenuPage: React.FC = () => {
       setIsLoading(true);
       setIsModalOpen(true); // Open modal immediately to show loading indicator
 
-      const response = await fetch(" https://b458-2405-201-1021-a86c-2192-93ff-e44f-19d6.ngrok-free.apppersonalized-recommendations", {
+      const response = await fetch("https://0bfd-2405-201-1021-a04d-1823-e4be-2105-1cef.ngrok-free.app/personalized-recommendations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ preference_query: searchQuery }),
