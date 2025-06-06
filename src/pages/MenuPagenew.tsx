@@ -81,7 +81,8 @@ const MenuPagenew: React.FC = () => {
       setIsLoading(false);
     }
   };
-
+  console.log(error)
+  console.log(selectedDish)
   // Fetch personalized recommendations
   const fetchRecommendations = async () => {
     if (!searchQuery) return;
