@@ -86,7 +86,7 @@ const MenuPage: React.FC = () => {
       setIsModalOpen(true);
 
       const response = await fetch(
-        "https://0bfd-2405-201-1021-a04d-1823-e4be-2105-1cef.ngrok-free.app/personalized-recommendations",
+        "https://0bfd-2405-201-1021-a04d-1823-e4be-2105-1cef.ngrok-free.app/recommend",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
