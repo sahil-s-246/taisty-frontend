@@ -19,6 +19,10 @@ const LoginPage: React.FC = () => {
     }
   };
 
+  const handleSignup = () => {
+    navigate("/signup"); // Change the route as per your app
+  };
+
   return (
     <div className="flex justify-center items-center h-screen bg-gray-100">
       <div className="bg-white p-6 rounded-lg shadow-md w-96">
@@ -37,15 +41,32 @@ const LoginPage: React.FC = () => {
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-2 border rounded-md mb-3"
+            className="w-full p-2 border rounded-md mb-4"
           />
-          <button
-            type="submit"
-            className="w-full bg-blue-500 text-white p-2 rounded-md"
-          >
-            Login
-          </button>
+
+          <div className="flex justify-between gap-2 mb-3">
+            <button
+              type="submit"
+              className="w-1/2 bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600"
+            >
+              Login
+            </button>
+            <button
+              type="button"
+              onClick={handleSignup}
+              className="w-1/2 bg-green-500 text-white p-2 rounded-md hover:bg-green-600"
+            >
+              Sign Up
+            </button>
+          </div>
         </form>
+
+        <p
+          onClick={() => navigate("/res")} // Change this route if needed
+          className="text-sm text-blue-600 text-center mt-4 cursor-pointer hover:underline"
+        >
+          Skip Sign Up
+        </p>
       </div>
     </div>
   );

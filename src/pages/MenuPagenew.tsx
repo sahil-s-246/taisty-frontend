@@ -3,6 +3,7 @@ import MenuCard from "../components/MenuCard";
 import Modal from "../components/Modal";
 import PWAInstallButton from "../components/PWA.tsx";
 
+// Define dish interface
 interface Dish {
   dish: string;
   cuisine: string;
@@ -11,16 +12,16 @@ interface Dish {
   allergy?: string;
 }
 
-const MenuPage: React.FC = () => {
+const MenuPagenew: React.FC = () => {
   const [menuItems, setMenuItems] = useState<Dish[]>([]);
   const [similarDishes, setSimilarDishes] = useState<Dish[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [searchMode, setSearchMode] = useState<"menu" | "imagination">("menu");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDish, setSelectedDish] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Fetch menu data
   useEffect(() => {
     fetch("/updated_data.json")
       .then((response) => {
@@ -35,22 +36,25 @@ const MenuPage: React.FC = () => {
     item.dish.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Fetch similar dishes
   const fetchSimilarDishes = async (dishName: string) => {
     try {
       setSelectedDish(dishName);
       setIsLoading(true);
       setIsModalOpen(true);
 
-      const response = await fetch(
-        "https://0bfd-2405-201-1021-a04d-1823-e4be-2105-1cef.ngrok-free.app/more-like-this",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dish_name: dishName }),
-        }
-      );
+      const response = await fetch("https://0bfd-2405-201-1021-a04d-1823-e4be-2105-1cef.ngrok-free.app/more-like-this", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ dish_name: dishName }),
+      });
 
-      if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Request failed: ${response.status} - ${errorText}`);
+      }
 
       const data = await response.json();
       const processedDishes: Dish[] = [];
@@ -78,6 +82,7 @@ const MenuPage: React.FC = () => {
     }
   };
 
+  // Fetch personalized recommendations
   const fetchRecommendations = async () => {
     if (!searchQuery) return;
 
@@ -85,21 +90,21 @@ const MenuPage: React.FC = () => {
       setIsLoading(true);
       setIsModalOpen(true);
 
-      const response = await fetch(
-        "https://0bfd-2405-201-1021-a04d-1823-e4be-2105-1cef.ngrok-free.app/personalized-recommendations",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ preference_query: searchQuery }),
-        }
-      );
+      const response = await fetch("https://0bfd-2405-201-1021-a04d-1823-e4be-2105-1cef.ngrok-free.app/personalized-recommendations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preference_query: searchQuery }),
+      });
 
-      if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Request failed: ${response.status} - ${errorText}`);
+      }
 
       const data = await response.json();
       const processedRecommendations: Dish[] = [];
 
-      if (data?.recommendations) {
+      if (data && data.recommendations) {
         data.recommendations.forEach((item: any) => {
           processedRecommendations.push({
             dish: item.dish || "",
@@ -124,26 +129,6 @@ const MenuPage: React.FC = () => {
       <h1 className="text-3xl font-bold text-gray-800 mb-6">📖 Restaurant Menu</h1>
       <PWAInstallButton />
 
-      {/* Toggle Buttons */}
-      <div className="mb-6 flex items-center space-x-4">
-        <button
-          onClick={() => setSearchMode("menu")}
-          className={`px-4 py-2 rounded-lg ${
-            searchMode === "menu" ? "bg-blue-500 text-white" : "bg-gray-200"
-          }`}
-        >
-          Menu Search
-        </button>
-        <button
-          onClick={() => setSearchMode("imagination")}
-          className={`px-4 py-2 rounded-lg ${
-            searchMode === "imagination" ? "bg-blue-500 text-white" : "bg-gray-200"
-          }`}
-        >
-          Imagination Search
-        </button>
-      </div>
-
       {/* Search Bar */}
       <div className="mb-6 flex items-center space-x-4">
         <input
@@ -154,41 +139,37 @@ const MenuPage: React.FC = () => {
           className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
-          onClick={searchMode === "menu" ? () => {} : fetchRecommendations}
+          onClick={fetchRecommendations}
           className="bg-blue-500 text-white px-4 py-2 rounded-lg"
         >
           Search
         </button>
       </div>
 
-      {/* Filtered Dishes (Menu Mode) */}
-      {searchMode === "menu" && (
-        <div className="mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredDishes.map((item, index) => (
-              <MenuCard
-                key={`menu-card-${item.dish}-${index}`}
-                dish={item.dish}
-                details={{
-                  cuisine: item.cuisine,
-                  category: item.category,
-                  description: item.description,
-                  allergy: item.allergy,
-                }}
-                onMoreLikeThis={fetchSimilarDishes}
-              />
-            ))}
-          </div>
+      {/* Display Filtered Dishes */}
+      <div className="mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredDishes.map((item, index) => (
+            <MenuCard
+              key={`menu-card-${item.dish}-${index}`}
+              dish={item.dish}
+              details={{
+                cuisine: item.cuisine,
+                category: item.category,
+                description: item.description,
+                allergy: item.allergy,
+              }}
+              onMoreLikeThis={fetchSimilarDishes}
+            />
+          ))}
         </div>
-      )}
+      </div>
 
-      {/* Modal */}
+      {/* Modal for Recommendations / Similar Dishes */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
         <div className="w-full max-h-[80vh] overflow-y-auto">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">
-            {searchMode === "menu"
-              ? `More Dishes Like "${selectedDish}"`
-              : "Recommended Dishes"}
+            Recommended Dishes
           </h2>
 
           {isLoading ? (
@@ -196,7 +177,7 @@ const MenuPage: React.FC = () => {
               <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
               <p className="mt-4 text-lg text-gray-600">Loading dishes...</p>
             </div>
-          ) : similarDishes.length > 0 ? (
+          ) : similarDishes && similarDishes.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {similarDishes.map((dish, index) => (
                 <MenuCard
@@ -224,4 +205,4 @@ const MenuPage: React.FC = () => {
   );
 };
 
-export default MenuPage;
+export default MenuPagenew;
