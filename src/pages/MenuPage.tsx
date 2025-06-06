@@ -13,6 +13,8 @@ interface Dish {
 
 const MenuPage: React.FC = () => {
   const [menuItems, setMenuItems] = useState<Dish[]>([]);
+  const [expiringDishes, setExpiringDishes] = useState<Dish[]>([]);
+  const [recommendedDishes, setRecommendedDishes] = useState<Dish[]>([]);
   const [similarDishes, setSimilarDishes] = useState<Dish[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -22,14 +24,63 @@ const MenuPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    fetch("/updated_data.json")
-      .then((response) => {
-        if (!response.ok) throw new Error("Failed to load menu data");
-        return response.json();
-      })
-      .then((data: Dish[]) => setMenuItems(data))
-      .catch((err) => setError(err.message));
+    const fetchData = async () => {
+      try {
+        const [menuRes, expiringRes] = await Promise.all([
+          fetch("/updated_data.json"),
+          fetch("https://taisty-admin.vercel.app/top-expiring-dishes")
+        ]);
+
+        if (!menuRes.ok || !expiringRes.ok)
+          throw new Error("Failed to load menu or freshness data");
+
+        const menuData: Dish[] = await menuRes.json();
+        const expiringData = await expiringRes.json();
+
+        setMenuItems(menuData);
+
+        const expiringDishNames: string[] = expiringData.top_expiring_dishes.map((d: any) => d.dish);
+        const matchedExpiring = menuData.filter((item) =>
+          expiringDishNames.includes(item.dish)
+        );
+        setExpiringDishes(matchedExpiring);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unknown error");
+      }
+    };
+
+    fetchData();
   }, []);
+
+  useEffect(() => {
+    const fetchPersonalized = async () => {
+      try {
+        const response = await fetch("https://0bfd-2405-201-1021-a04d-1823-e4be-2105-1cef.ngrok-free.app/recommend", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: "user1", preference_query: "" }),
+        });
+
+        if (!response.ok) throw new Error("Failed to fetch recommended dishes");
+
+        const data = await response.json();
+        const processed: Dish[] = (data.recommendations || []).map((item: any) => ({
+          dish: item.dish || "",
+          cuisine: item.cuisine || "",
+          category: item.category || "",
+          description: item.description || "",
+          allergy: item.allergy || undefined,
+        }));
+        setRecommendedDishes(processed);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    if (searchMode === "imagination") {
+      fetchPersonalized();
+    }
+  }, [searchMode]);
 
   const filteredDishes = menuItems.filter((item) =>
     item.dish.toLowerCase().includes(searchQuery.toLowerCase())
@@ -41,14 +92,11 @@ const MenuPage: React.FC = () => {
       setIsLoading(true);
       setIsModalOpen(true);
 
-      const response = await fetch(
-        "https://0bfd-2405-201-1021-a04d-1823-e4be-2105-1cef.ngrok-free.app/more-like-this",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dish_name: dishName }),
-        }
-      );
+      const response = await fetch("https://0bfd-2405-201-1021-a04d-1823-e4be-2105-1cef.ngrok-free.app/more-like-this", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dish_name: dishName }),
+      });
 
       if (!response.ok) throw new Error(`Request failed: ${response.status}`);
 
@@ -85,14 +133,11 @@ const MenuPage: React.FC = () => {
       setIsLoading(true);
       setIsModalOpen(true);
 
-      const response = await fetch(
-        "https://0bfd-2405-201-1021-a04d-1823-e4be-2105-1cef.ngrok-free.app/recommend",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ preference_query: searchQuery }),
-        }
-      );
+      const response = await fetch("https://0bfd-2405-201-1021-a04d-1823-e4be-2105-1cef.ngrok-free.app/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id:"user1",preference_query: searchQuery }),
+      });
 
       if (!response.ok) throw new Error(`Request failed: ${response.status}`);
 
@@ -118,33 +163,73 @@ const MenuPage: React.FC = () => {
       setIsLoading(false);
     }
   };
-  console.log(error)
+
   return (
     <div className="max-w-7xl mx-auto p-4">
       <h1 className="text-3xl font-bold text-gray-800 mb-6">📖 Restaurant Menu</h1>
       <PWAInstallButton />
 
-      {/* Toggle Buttons */}
+      {/* 🌿 Freshest Today Section */}
+      {expiringDishes.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-green-600 mb-4">🌿 Today's Special</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {expiringDishes.map((item, index) => (
+              <MenuCard
+                key={`fresh-${item.dish}-${index}`}
+                dish={item.dish}
+                details={{
+                  cuisine: item.cuisine,
+                  category: item.category,
+                  description: item.description,
+                  allergy: item.allergy,
+                }}
+                onMoreLikeThis={fetchSimilarDishes}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recommended For You Section (Imagination Mode) */}
+      {searchMode === "imagination" && recommendedDishes.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-blue-600 mb-4">✨ Recommended For You</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {recommendedDishes.map((item, index) => (
+              <MenuCard
+                key={`rec-${item.dish}-${index}`}
+                dish={item.dish}
+                details={{
+                  cuisine: item.cuisine,
+                  category: item.category,
+                  description: item.description,
+                  allergy: item.allergy,
+                }}
+                onMoreLikeThis={fetchSimilarDishes}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Search Mode Buttons */}
       <div className="mb-6 flex items-center space-x-4">
         <button
           onClick={() => setSearchMode("menu")}
-          className={`px-4 py-2 rounded-lg ${
-            searchMode === "menu" ? "bg-blue-500 text-white" : "bg-gray-200"
-          }`}
+          className={`px-4 py-2 rounded-lg ${searchMode === "menu" ? "bg-blue-500 text-white" : "bg-gray-200"}`}
         >
           Menu Search
         </button>
         <button
           onClick={() => setSearchMode("imagination")}
-          className={`px-4 py-2 rounded-lg ${
-            searchMode === "imagination" ? "bg-blue-500 text-white" : "bg-gray-200"
-          }`}
+          className={`px-4 py-2 rounded-lg ${searchMode === "imagination" ? "bg-blue-500 text-white" : "bg-gray-200"}`}
         >
           Imagination Search
         </button>
       </div>
 
-      {/* Search Bar */}
+      {/* Search Input */}
       <div className="mb-6 flex items-center space-x-4">
         <input
           type="text"
@@ -161,7 +246,7 @@ const MenuPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Filtered Dishes (Menu Mode) */}
+      {/* Filtered Menu Cards */}
       {searchMode === "menu" && (
         <div className="mb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -182,7 +267,7 @@ const MenuPage: React.FC = () => {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal for Recommendations */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
         <div className="w-full max-h-[80vh] overflow-y-auto">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">
