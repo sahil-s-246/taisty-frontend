@@ -51,7 +51,7 @@ const MenuPage: React.FC = () => {
 
     fetchData();
   }, []);
-
+console.log(error)
   useEffect(() => {
     const fetchPersonalized = async () => {
       try {
